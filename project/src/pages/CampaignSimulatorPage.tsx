@@ -7,50 +7,62 @@ import {
 } from 'lucide-react';
 import { CampaignSimulation, Location } from '../types/campaign';
 
-const CampaignSimulatorPage: React.FC = () => {
-  const [formData, setFormData] = useState({
-    keyword: '',
-    budget: 1000,
-    targetRevenue: 5000,
-    pricingModel: 'subscription' as 'subscription' | 'fixed'
+const [formData, setFormData] = useState({
+    region: 'North America', // Valor inicial de exemplo
+    content: 'Image',       // Valor inicial de exemplo
+    age: '25-34',         // Valor inicial de exemplo
+    gender: 'Female',     // Valor inicial de exemplo
+    platform: 'Instagram',  // Valor inicial de exemplo
+    budget: 1000,           // Mantém o budget
+    product_tier: 'Low Ticket' // Valor inicial de exemplo
   });
   
   const [showResults, setShowResults] = useState(false);
 
   const { data: simulation, isLoading, error, refetch } = useQuery({
     queryKey: ['campaignSimulation', formData],
-    queryFn: async () => {
-      // In a real implementation, this would call your Django backend
-      // For demo purposes, we'll simulate the API response
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+queryFn: async () => {
+      // Faz a chamada de API real para o seu servidor Python local
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/simulate', 
+        formData // Envia o estado do formulário
+      );
       
-      const mockLocations: Location[] = [
-        { name: 'United States', searchVolume: 150000, cpc: 2.5, competition: 0.8 },
-        { name: 'United Kingdom', searchVolume: 80000, cpc: 2.1, competition: 0.75 },
-        { name: 'Canada', searchVolume: 45000, cpc: 1.9, competition: 0.7 },
-        // Add more mock data...
-      ];
+      // A API de RL retorna apenas a recomendação.
+      // Precisamos "encaixar" isso na sua interface 'CampaignSimulation'
+      const rlData = response.data; // ex: { recommended_price: 29.99, ... }
+
+      // Como a API de RL não retorna dados de localização, vamos usar mocks
+      // ou apenas focar em mostrar a recomendação de preço.
+      // Por enquanto, vamos retornar um objeto simples:
       
-      return {
-        ...formData,
-        countries: mockLocations,
-        states: mockLocations.map(l => ({ ...l, searchVolume: l.searchVolume * 0.3 })),
-        cities: mockLocations.map(l => ({ ...l, searchVolume: l.searchVolume * 0.1 })),
-        recommendations: [
-          {
-            type: formData.pricingModel,
-            amount: formData.pricingModel === 'subscription' ? 49.99 : 299,
-            estimatedRevenue: 7500,
-            roi: 250,
-            coverage: 0.85,
-            locations: ['United States', 'Canada', 'United Kingdom']
-          },
-          // Add more recommendations...
-        ]
+      // ATENÇÃO: A sua API de Python (main.py) retorna um formato simples:
+      // { "recommended_price": ..., "estimated_roi": ... }
+      // A sua página espera um objeto 'CampaignSimulation'
+      // Vamos precisar adaptar a resposta:
+      
+      const recommendation: PricingRecommendation = {
+        type: formData.product_tier === 'Mid Ticket' ? 'subscription' : 'fixed',
+        amount: rlData.recommended_price,
+        estimatedRevenue: (formData.budget * (rlData.estimated_roi / 100)) + formData.budget,
+        roi: rlData.estimated_roi,
+        coverage: 0.0, // Placeholder
+        locations: [formData.region] // Usa a região do input
       };
+      
+      const simulationResult: CampaignSimulation = {
+        keyword: 'Simulação de RL', // Placeholder
+        budget: formData.budget,
+        targetRevenue: 0.0, // Placeholder
+        pricingModel: 'fixed', // Placeholder
+        countries: [], // API de RL não retorna isso
+        states: [],    // API de RL não retorna isso
+        cities: [],    // API de RL não retorna isso
+        recommendations: [recommendation] // Insere a recomendação da API
+      };
+      
+      return simulationResult;
     },
-    enabled: false // Don't run query automatically
-  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
