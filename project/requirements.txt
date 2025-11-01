@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+d3rlpy==2.8.1
+torch
+scikit-learn
